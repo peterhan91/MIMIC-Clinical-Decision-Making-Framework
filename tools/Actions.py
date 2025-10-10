@@ -1,4 +1,7 @@
+import json
 from enum import Enum
+from functools import lru_cache
+from pathlib import Path
 from typing import Union, List, Dict
 
 import pandas as pd
@@ -24,6 +27,31 @@ class Actions(Enum):
 
 def is_valid_action(action: str) -> bool:
     return action in [action.value for action in Actions]
+
+
+@lru_cache(maxsize=1)
+def _load_diagnostic_criteria_map() -> Dict[str, str]:
+    criteria_map = {
+        "appendicitis": DIAGNOSTIC_CRITERIA_APPENDICITIS,
+        "cholecystitis": DIAGNOSTIC_CRITERIA_CHOLECYSTITIS,
+        "diverticulitis": DIAGNOSTIC_CRITERIA_DIVERTICULITIS,
+        "pancreatitis": DIAGNOSTIC_CRITERIA_PANCREATITIS,
+    }
+
+    repo_root = Path(__file__).resolve().parents[1]
+    json_path = repo_root / "dataset" / "diagnostic_criteria.json"
+    if json_path.exists():
+        try:
+            with open(json_path, "r") as f:
+                dynamic_map = json.load(f)
+            for key, value in dynamic_map.items():
+                key_lower = str(key).strip().lower()
+                if key_lower and isinstance(value, str) and value.strip():
+                    criteria_map[key_lower] = value.strip()
+        except Exception:
+            pass
+
+    return criteria_map
 
 
 def get_action_results(
@@ -189,17 +217,16 @@ def retrieve_diagnostic_criteria(
         result_string (str): The diagnostic criteria to be given as an observation to the model.
     """
     result_string = ""
-    name_to_criteria = {
-        "appendicitis": DIAGNOSTIC_CRITERIA_APPENDICITIS,
-        "cholecystitis": DIAGNOSTIC_CRITERIA_CHOLECYSTITIS,
-        "diverticulitis": DIAGNOSTIC_CRITERIA_DIVERTICULITIS,
-        "pancreatitis": DIAGNOSTIC_CRITERIA_PANCREATITIS,
-    }
+    name_to_criteria = _load_diagnostic_criteria_map()
+    available_names = list(name_to_criteria.keys())
     for patho in action_input:
-        patho_match, score = process.extractOne(patho, name_to_criteria.keys())
-        if score >= 80:
-            patho = patho_match
-        diagnostic_criteria = name_to_criteria.get(patho, None)
+        raw_name = str(patho).strip()
+        lookup_key = raw_name.lower()
+        diagnostic_criteria = name_to_criteria.get(lookup_key, None)
+        if diagnostic_criteria is None and available_names:
+            patho_match, score = process.extractOne(lookup_key, available_names)
+            if score >= 80:
+                diagnostic_criteria = name_to_criteria.get(patho_match)
         if not diagnostic_criteria:
             result_string += f"Diagnostic criteria for {patho} is not available.\n"
             with open("no_diagnostic_criteria.txt", "a") as f:
