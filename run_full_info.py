@@ -6,6 +6,7 @@ import random
 from datetime import datetime
 import time
 import pickle
+from utils.pickle_compat import safe_pickle_load
 import fcntl
 
 import numpy as np
@@ -246,7 +247,7 @@ def run(args: DictConfig):
 
     # Load lab test mapping
     with open(args.lab_test_mapping_path, "rb") as f:
-        lab_test_mapping_df = pickle.load(f)
+        lab_test_mapping_df = safe_pickle_load(f)
 
     # Load patient data
     # for patho in ["appendicitis", "cholecystitis", "diverticulitis", "pancreatitis"]:
@@ -259,7 +260,7 @@ def run(args: DictConfig):
     patient_list = hadm_info_clean.keys()
     if args.patient_list_path:
         with open(args.patient_list_path, "rb") as f:
-            patient_list = pickle.load(f)
+            patient_list = safe_pickle_load(f)
 
     first_patient_seen = False
     for _id in patient_list:

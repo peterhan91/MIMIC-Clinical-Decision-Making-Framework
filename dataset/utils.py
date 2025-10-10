@@ -1,5 +1,6 @@
 from os.path import join
 import pickle
+from utils.pickle_compat import safe_pickle_load
 import re
 
 
@@ -41,7 +42,7 @@ def write_hadm_to_file(hadm_info, filename, base_mimic=""):
 # Load from pickle
 def load_hadm_from_file(filename, base_mimic=""):
     with open(join(base_mimic, filename + ".pkl"), "rb") as f:
-        hadm_info = pickle.load(f)
+        hadm_info = safe_pickle_load(f)
     return hadm_info
 
 

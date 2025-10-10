@@ -1,4 +1,5 @@
 import pickle
+from utils.pickle_compat import safe_pickle_load
 from typing import List, Tuple, Union, Dict, Any
 from hashlib import sha256
 import pandas as pd
@@ -251,7 +252,7 @@ def build_agent_executor_ZeroShot(
     model_stop_words,
 ):
     with open(lab_test_mapping_path, "rb") as f:
-        lab_test_mapping_df = pickle.load(f)
+        lab_test_mapping_df = safe_pickle_load(f)
 
     # Define which tools the agent can use to answer user queries
     tools = [

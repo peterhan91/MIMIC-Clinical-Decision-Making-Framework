@@ -1,5 +1,6 @@
 import ast
 import pickle
+from utils.pickle_compat import safe_pickle_load
 
 
 def parse_patient(patient_buffer):
@@ -49,6 +50,6 @@ def read_from_pickle_file(filename):
     with open(filename, "rb") as f:
         while True:
             try:
-                yield pickle.load(f)
+                yield safe_pickle_load(f)
             except EOFError:
                 break

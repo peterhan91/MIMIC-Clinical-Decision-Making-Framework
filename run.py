@@ -19,6 +19,7 @@ from loguru import logger
 from omegaconf import DictConfig
 
 from dataset.utils import load_hadm_from_file
+from utils.pickle_compat import safe_pickle_load
 from utils.logging import append_to_pickle_file
 from evaluators.appendicitis_evaluator import AppendicitisEvaluator
 from evaluators.cholecystitis_evaluator import CholecystitisEvaluator
@@ -186,7 +187,7 @@ def _load_patient_data(args: DictConfig):
         if not os.path.isabs(hadm_path) and base_mimic:
             hadm_path = join(base_mimic, hadm_path)
         with open(hadm_path, "rb") as handle:
-            hadm_info_clean = pickle.load(handle)
+            hadm_info_clean = safe_pickle_load(handle)
     else:
         hadm_info_clean = load_hadm_from_file(
             f"{args.pathology}_hadm_info_first_diag", base_mimic=base_mimic
