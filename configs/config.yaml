@@ -23,6 +23,8 @@ run_descr:
 
 first_patient:
 patient_list_path:
+hadm_pickle_path:
+ref_ranges_json_path:
 
 order: pli
 diagnostic_criteria:
