@@ -8,11 +8,13 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict
 
 import langchain
 import hydra
 import numpy as np
 import torch
+from langchain.schema import AgentAction
 from loguru import logger
 from omegaconf import DictConfig
 
@@ -130,6 +132,50 @@ def _apply_reference_ranges(hadm_info_clean, ref_ranges_json_path: str):
                 lower_dict[itemid_str] = lower
             if itemid_str not in upper_dict:
                 upper_dict[itemid_str] = upper
+
+
+def _make_json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _make_json_safe(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_make_json_safe(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return [_make_json_safe(item) for item in value.tolist()]
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, AgentAction):
+        return {
+            "tool": value.tool,
+            "tool_input": _make_json_safe(value.tool_input),
+            "log": value.log,
+        }
+    return str(value)
+
+
+def _serialize_result_for_json(result: Any) -> Any:
+    if isinstance(result, dict):
+        serialized: Dict[str, Any] = {}
+        for key, value in result.items():
+            if key == "intermediate_steps" and isinstance(value, list):
+                steps = []
+                for step in value:
+                    if isinstance(step, (list, tuple)) and len(step) == 2:
+                        action, observation = step
+                        steps.append(
+                            {
+                                "action": _make_json_safe(action),
+                                "observation": _make_json_safe(observation),
+                            }
+                        )
+                    else:
+                        steps.append(_make_json_safe(step))
+                serialized[key] = steps
+            else:
+                serialized[key] = _make_json_safe(value)
+        return serialized
+    return _make_json_safe(result)
 
 
 def _load_patient_data(args: DictConfig):
@@ -343,6 +389,22 @@ def run(args: DictConfig):
     results_log_path = join(run_dir, f"{run_name}_results.pkl")
     eval_log_path = join(run_dir, f"{run_name}_eval.pkl")
     log_path = join(run_dir, f"{run_name}.log")
+    results_json_path = join(run_dir, f"{run_name}_results.json")
+    json_results: Dict[str, Any] = {}
+    if os.path.exists(results_json_path):
+        try:
+            with open(results_json_path, "r", encoding="utf-8") as json_file:
+                existing_results = json.load(json_file)
+                if isinstance(existing_results, dict):
+                    json_results = {str(key): value for key, value in existing_results.items()}
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Existing results JSON at {results_json_path} could not be parsed; starting fresh."
+            )
+        except OSError as exc:
+            logger.warning(
+                f"Unable to read existing results JSON at {results_json_path}: {exc}"
+            )
     logger.add(log_path, enqueue=True, backtrace=True, diagnose=True)
     langchain.debug = True
     for warning in CLI_ADAPTATION_WARNINGS:
@@ -384,6 +446,14 @@ def run(args: DictConfig):
             {"input": hadm_info_clean[_id]["Patient History"].strip()}
         )
         append_to_pickle_file(results_log_path, {_id: result})
+        json_results[str(_id)] = _serialize_result_for_json(result)
+        try:
+            with open(results_json_path, "w", encoding="utf-8") as json_file:
+                json.dump(json_results, json_file, ensure_ascii=False, indent=2)
+        except OSError as exc:
+            logger.error(
+                f"Failed to write results JSON to {results_json_path}: {exc}"
+            )
 
 if __name__ == "__main__":
     _adapt_slurm_cli_args()
