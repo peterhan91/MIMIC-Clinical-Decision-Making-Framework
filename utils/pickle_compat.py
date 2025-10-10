@@ -21,15 +21,22 @@ def safe_pickle_load(file_obj):
     unpickler if needed.
     """
     try:
+        pos = None
+        try:
+            pos = file_obj.tell()
+        except Exception:
+            pass
         return pickle.load(file_obj)
     except ModuleNotFoundError as exc:
         # Common when a pickle was created with NumPy 2.x and contains
         # references to numpy._core.*, which do not exist in NumPy 1.x.
         if "numpy._core" in str(exc):
+            # Retry same object with compat unpickler
             try:
-                # Reset stream and retry with compat unpickler
-                file_obj.seek(0)
+                if pos is not None:
+                    file_obj.seek(pos)
             except Exception:
+                # If seeking fails, fall through and attempt load anyway
                 pass
             return _NumpyCompatUnpickler(file_obj).load()
         raise
@@ -38,4 +45,3 @@ def safe_pickle_load(file_obj):
 def safe_pickle_load_path(path: str):
     with open(path, "rb") as f:
         return safe_pickle_load(f)
-
