@@ -16,7 +16,7 @@ set -euo pipefail
 
 module load cuda/12.4
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
-conda activate axolotl
+conda activate mimic_cdm
 
 REPO_PATH="/cbica/projects/CXR/codes/MIMIC-Clinical-Decision-Making-Framework"
 DATA_ROOT_III="/cbica/projects/CXR/dropbox/CDM_III"
