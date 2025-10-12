@@ -14,9 +14,9 @@
 
 set -euo pipefail
 
-module load cuda/12.4
+module load cuda/11.8
 source /cbica/projects/CXR/miniconda3/etc/profile.d/conda.sh
-conda activate mimic_cdm
+conda activate mimic-cdm
 
 REPO_PATH="/cbica/projects/CXR/codes/MIMIC-Clinical-Decision-Making-Framework"
 DATA_ROOT_III="/cbica/projects/CXR/dropbox/CDM_III"
