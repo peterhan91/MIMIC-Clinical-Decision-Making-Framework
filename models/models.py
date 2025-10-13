@@ -144,19 +144,40 @@ class CustomLLM(LLM):
                     self.model_name,
                     cache_dir=base_models,
                 )
-            except Exception as exc:
+            except Exception as exc_fast:
                 print(
-                    f"failed to load fast tokenizer for {self.model_name}: {exc}. "
+                    f"failed to load fast tokenizer for {self.model_name}: {exc_fast}. "
                     "Retrying with use_fast=False."
                 )
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    self.model_name,
-                    cache_dir=base_models,
-                    use_fast=False,
-                )
+                try:
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        self.model_name,
+                        cache_dir=base_models,
+                        use_fast=False,
+                    )
+                except Exception as exc_slow_auto:
+                    # Some newer tokenizers JSON require a newer `tokenizers` wheel.
+                    # Fall back to the pure Python SentencePiece-based tokenizer.
+                    print(
+                        "AutoTokenizer(use_fast=False) also failed. "
+                        f"Falling back to LlamaTokenizer. Error: {exc_slow_auto}"
+                    )
+                    from transformers import LlamaTokenizer
+
+                    self.tokenizer = LlamaTokenizer.from_pretrained(
+                        self.model_name,
+                        cache_dir=base_models,
+                    )
 
             eot = "<|eot_id|>"
-            eot_id = self.tokenizer.convert_tokens_to_ids(eot)
+            try:
+                eot_id = self.tokenizer.convert_tokens_to_ids(eot)
+            except Exception:
+                eot_id = None
+            # If the tokenizer doesn't know about <|eot_id|>, fall back to eos
+            if eot_id is None or (hasattr(self.tokenizer, "unk_token_id") and eot_id == self.tokenizer.unk_token_id):
+                eot = getattr(self.tokenizer, "eos_token", None) or "<|endoftext|>"
+                eot_id = getattr(self.tokenizer, "eos_token_id", None)
             self.tokenizer.pad_token = eot
             self.tokenizer.pad_token_id = eot_id
 
