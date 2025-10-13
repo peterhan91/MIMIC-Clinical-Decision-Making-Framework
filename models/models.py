@@ -190,7 +190,7 @@ class CustomLLM(LLM):
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 cache_dir=base_models,
-                device_map={"": "cuda:0"},
+                device_map="auto",
                 quantization_config=bb_cfg,
             )
             print("loaded model")
