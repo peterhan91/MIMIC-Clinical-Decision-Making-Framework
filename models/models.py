@@ -11,7 +11,7 @@ from tenacity import (
 )
 from transformers import GenerationConfig, StoppingCriteriaList
 from langchain.llms.base import LLM
-from exllamav2.generator import ExLlamaV2Sampler
+# from exllamav2.generator import ExLlamaV2Sampler
 import tiktoken
 
 from models.utils import create_stop_criteria, create_stop_criteria_exllama
