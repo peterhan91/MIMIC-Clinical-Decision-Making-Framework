@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-gpu=8
 #SBATCH --mem-per-gpu=80G
 #SBATCH --time=5-00:00:00
-#SBATCH --output=react_debug_%j.out
-#SBATCH --error=react_debug_%j.err
+#SBATCH --output=slurm-%j.out
+#SBATCH --error=slurm-%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=tianyu.han@pennmedicine.upenn.edu
 #SBATCH --exclude=2115ga003

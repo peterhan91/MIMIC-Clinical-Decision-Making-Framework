@@ -20,7 +20,6 @@ from omegaconf import DictConfig
 
 from dataset.utils import load_hadm_from_file
 from utils.pickle_compat import safe_pickle_load
-from utils.logging import append_to_pickle_file
 from evaluators.appendicitis_evaluator import AppendicitisEvaluator
 from evaluators.cholecystitis_evaluator import CholecystitisEvaluator
 from evaluators.diverticulitis_evaluator import DiverticulitisEvaluator
@@ -360,37 +359,18 @@ def run(args: DictConfig):
     )
     llm.load_model(args.base_models)
 
+    # Simplified, structured output directory and filenames
+    # Folder structure: <local_logging_dir>/<pathology>/<model_tag>/<YYYYMMDD-HHMMSS>
     date_time = datetime.fromtimestamp(time.time())
-    str_date = date_time.strftime("%d-%m-%Y_%H:%M:%S")
-    args.model_name = args.model_name.replace("/", "_")
-    run_name = f"{args.pathology}_{args.agent}_{args.model_name}_{str_date}"
-    if args.fewshot:
-        run_name += "_FEWSHOT"
-    if args.include_ref_range:
-        if args.bin_lab_results:
-            raise ValueError(
-                "Binning and printing reference ranges concurrently is not supported."
-            )
-        run_name += "_REFRANGE"
-    if args.bin_lab_results:
-        run_name += "_BIN"
-    if args.include_tool_use_examples:
-        run_name += "_TOOLEXAMPLES"
-    if args.provide_diagnostic_criteria:
-        run_name += "_DIAGCRIT"
-    if not args.summarize:
-        run_name += "_NOSUMMARY"
-    if args.run_descr:
-        run_name += str(args.run_descr)
-    run_dir = join(args.local_logging_dir, run_name)
+    timestamp = date_time.strftime("%Y%m%d-%H%M%S")
+    model_tag = args.model_name.split("/")[-1]
+    run_dir = join(args.local_logging_dir, args.pathology, model_tag, timestamp)
 
     os.makedirs(run_dir, exist_ok=True)
 
-    # Setup logfile and logpickle
-    results_log_path = join(run_dir, f"{run_name}_results.pkl")
-    eval_log_path = join(run_dir, f"{run_name}_eval.pkl")
-    log_path = join(run_dir, f"{run_name}.log")
-    results_json_path = join(run_dir, f"{run_name}_results.json")
+    # Setup logfile and results files with simple names
+    log_path = join(run_dir, "run.log")
+    results_json_path = join(run_dir, "results.json")
     json_results: Dict[str, Any] = {}
     if os.path.exists(results_json_path):
         try:
@@ -406,14 +386,14 @@ def run(args: DictConfig):
             logger.warning(
                 f"Unable to read existing results JSON at {results_json_path}: {exc}"
             )
-    logger.add(log_path, enqueue=True, backtrace=True, diagnose=True)
+    logger.add(log_path, enqueue=True, backtrace=True, diagnose=True, serialize=True)
     langchain.debug = True
     for warning in CLI_ADAPTATION_WARNINGS:
         logger.warning(warning)
     CLI_ADAPTATION_WARNINGS.clear()
 
-    # Set langsmith project name
-    # os.environ["LANGCHAIN_PROJECT"] = run_name
+    # Set langsmith project name (optional)
+    # os.environ["LANGCHAIN_PROJECT"] = f"{args.pathology}-{model_tag}-{timestamp}"
 
     # Predict for all patients
     first_patient_seen = False
@@ -446,7 +426,6 @@ def run(args: DictConfig):
         result = agent_executor(
             {"input": hadm_info_clean[_id]["Patient History"].strip()}
         )
-        append_to_pickle_file(results_log_path, {_id: result})
         json_results[str(_id)] = _serialize_result_for_json(result)
         try:
             with open(results_json_path, "w", encoding="utf-8") as json_file:
