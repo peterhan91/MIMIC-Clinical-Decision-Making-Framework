@@ -335,18 +335,18 @@ def calculate_num_tokens(tokenizer, inputs):
     num_tokens = 0
     for input in inputs:
         tokens = tokenizer.encode(input)
-        if isinstance(tokenizer, ExLlamaV2Tokenizer):
-            num_tokens += tokens.shape[-1]
-        else:
-            num_tokens += len(tokens)
+        # if isinstance(tokenizer, ExLlamaV2Tokenizer):
+        #     num_tokens += tokens.shape[-1]
+        # else:
+        num_tokens += len(tokens)
     return num_tokens
 
 
 def truncate_text(tokenizer, input, available_tokens):
-    if isinstance(tokenizer, ExLlamaV2Tokenizer):
-        truncated_input_tokens = tokenizer.encode(input)[:, :available_tokens]
-        input = tokenizer.decode(truncated_input_tokens)[0]
-    elif isinstance(tokenizer, tiktoken.Encoding):
+    # if isinstance(tokenizer, ExLlamaV2Tokenizer):
+    #     truncated_input_tokens = tokenizer.encode(input)[:, :available_tokens]
+    #     input = tokenizer.decode(truncated_input_tokens)[0]
+    if isinstance(tokenizer, tiktoken.Encoding):
         truncated_input_tokens = input = tokenizer.encode(input)[:available_tokens]
         input = tokenizer.decode(truncated_input_tokens)
     else:
