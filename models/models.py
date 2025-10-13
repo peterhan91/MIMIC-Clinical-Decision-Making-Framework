@@ -10,7 +10,6 @@ from tenacity import (
     wait_random_exponential,
 )
 from transformers import GenerationConfig, StoppingCriteriaList
-from auto_gptq import exllama_set_max_input_length
 from langchain.llms.base import LLM
 from exllamav2.generator import ExLlamaV2Sampler
 import tiktoken
@@ -121,6 +120,9 @@ class CustomLLM(LLM):
                     torch_dtype=torch.float16,
                     device_map="auto",
                 )
+                # Lazily import to avoid importing auto_gptq unless needed
+                from auto_gptq import exllama_set_max_input_length
+
                 self.model = exllama_set_max_input_length(
                     self.model, self.max_context_length
                 )
