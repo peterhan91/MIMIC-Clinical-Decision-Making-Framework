@@ -12,7 +12,7 @@ from thefuzz import process, fuzz
 from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from transformers import LlamaTokenizer, AutoTokenizer
-from exllamav2 import ExLlamaV2Tokenizer
+# from exllamav2 import ExLlamaV2Tokenizer
 import tiktoken
 
 from tools.utils import FLUID_MAPPING, itemid_to_field
