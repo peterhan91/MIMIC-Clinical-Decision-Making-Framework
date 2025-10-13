@@ -139,10 +139,21 @@ class CustomLLM(LLM):
 
             print(f"loading from {base_models}")
 
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                self.model_name,
-                cache_dir=base_models,
-            )
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    cache_dir=base_models,
+                )
+            except Exception as exc:
+                print(
+                    f"failed to load fast tokenizer for {self.model_name}: {exc}. "
+                    "Retrying with use_fast=False."
+                )
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    cache_dir=base_models,
+                    use_fast=False,
+                )
 
             eot = "<|eot_id|>"
             eot_id = self.tokenizer.convert_tokens_to_ids(eot)
