@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import langchain
 import hydra
@@ -132,6 +132,68 @@ def _apply_reference_ranges(hadm_info_clean, ref_ranges_json_path: str):
                 lower_dict[itemid_str] = lower
             if itemid_str not in upper_dict:
                 upper_dict[itemid_str] = upper
+
+
+def _extract_between(text: str, start_key: str, end_keys: Optional[list] = None) -> str:
+    """Extract substring that follows start_key up to the first of end_keys or end of text.
+
+    Case-insensitive header match; returns stripped text or empty string if not found.
+    """
+    if not text:
+        return ""
+    lower = text.lower()
+    start = lower.rfind(start_key.lower())
+    if start == -1:
+        return ""
+    start += len(start_key)
+    end = len(text)
+    if end_keys:
+        for key in end_keys:
+            idx = lower.find(key.lower(), start)
+            if idx != -1:
+                end = min(end, idx)
+    return text[start:end].strip().strip("\n\r :-")
+
+
+def _parse_structured_from_output(output_text: str) -> Dict[str, Optional[str]]:
+    """Parse final_diagnosis, treatment, and rationale from the agent's final output text.
+
+    Heuristics are aligned with evaluator parsing rules but simplified for logging.
+    """
+    if output_text is None:
+        output_text = ""
+
+    # Prefer sections around explicit headers; tolerate small deviations
+    # Rationale: take the last Thought: ... before Final Diagnosis or Treatment
+    rationale = _extract_between(
+        output_text, "Thought:", ["Final Diagnosis:", "Treatment:"]
+    )
+    if not rationale:
+        # Sometimes models write 'Reasoning:' or 'Rationale:'
+        rationale = _extract_between(
+            output_text, "Rationale:", ["Final Diagnosis:", "Treatment:"]
+        ) or _extract_between(output_text, "Reasoning:", ["Final Diagnosis:", "Treatment:"])
+
+    # Final Diagnosis
+    # Capture up to a line that looks like Treatment: or end
+    final_diagnosis = _extract_between(output_text, "Final Diagnosis:", ["Treatment:"])
+    if not final_diagnosis:
+        # Fallback to 'Diagnosis:'
+        final_diagnosis = _extract_between(output_text, "Diagnosis:", ["Treatment:"])
+
+    # Treatment
+    treatment = _extract_between(output_text, "Treatment:")
+
+    # Normalize empties to None for cleaner JSON
+    def nz(val: str) -> Optional[str]:
+        val = (val or "").strip()
+        return val if val else None
+
+    return {
+        "final_diagnosis": nz(final_diagnosis),
+        "treatment": nz(treatment),
+        "rationale": nz(rationale),
+    }
 
 
 def _make_json_safe(value: Any) -> Any:
@@ -426,7 +488,18 @@ def run(args: DictConfig):
         result = agent_executor(
             {"input": hadm_info_clean[_id]["Patient History"].strip()}
         )
-        json_results[str(_id)] = _serialize_result_for_json(result)
+        # Build structured output alongside raw output
+        try:
+            raw_output_text = result.get("output", "")
+        except Exception:
+            raw_output_text = ""
+        structured = _parse_structured_from_output(str(raw_output_text))
+        # Preserve original under output_raw and set output to structured dict
+        result_dict_safe = dict(result)
+        result_dict_safe["output_raw"] = raw_output_text
+        result_dict_safe["output"] = structured
+
+        json_results[str(_id)] = _serialize_result_for_json(result_dict_safe)
         try:
             with open(results_json_path, "w", encoding="utf-8") as json_file:
                 json.dump(json_results, json_file, ensure_ascii=False, indent=2)
