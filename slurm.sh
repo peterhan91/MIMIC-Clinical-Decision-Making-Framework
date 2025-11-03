@@ -54,7 +54,7 @@ case "$DISEASE" in
     ;;
 esac
 
-HADM_PKL="${DATA_PATH}/${DISEASE}.pkl"
+HADM_PKL="${DATA_PATH}/${DISEASE}_hadm_info_first_diag.pkl"
 
 # Run inside Apptainer container
 apptainer exec --nv \
