@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=pure_react
+#SBATCH --job-name=mimic_cdm
 #SBATCH --partition=ai
 #SBATCH --nodes=1
-#SBATCH --gpus-per-node=a40:1
+#SBATCH --gpus-per-node=a100:1
 #SBATCH --cpus-per-gpu=8
 #SBATCH --mem-per-gpu=80G
 #SBATCH --time=5-00:00:00
