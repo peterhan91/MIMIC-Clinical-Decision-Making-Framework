@@ -10,7 +10,6 @@
 #SBATCH --error=slurm-%j.err
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=tianyu.han@pennmedicine.upenn.edu
-#SBATCH --exclude=2115ga003
 
 set -euo pipefail
 
