@@ -16,6 +16,7 @@ include_tool_use_examples: False
 abbreviated: True
 self_consistency: False
 only_abnormal_labs: False
+gpt_oss_reasoning_effort: low
 
 seed: 2023
 local_logging: True

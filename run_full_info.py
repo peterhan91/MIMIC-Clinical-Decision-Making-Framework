@@ -113,6 +113,7 @@ def run(args: DictConfig):
         exllama=args.exllama,
         seed=args.seed,
         self_consistency=args.self_consistency,
+        gpt_oss_reasoning_effort=args.gpt_oss_reasoning_effort,
     )
     llm.load_model(args.base_models)
 

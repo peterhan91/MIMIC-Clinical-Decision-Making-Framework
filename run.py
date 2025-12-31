@@ -34,6 +34,8 @@ HF_ID_TO_MODEL_CONFIG = {
     "aaditya/OpenBioLLM-Llama3-70B": "OpenBioLLM70B",
     "axiong/PMC_LLaMA_13B": "PMCLlama13B",
     "google/medgemma-27b-text-it": "MedGemma27B",
+    "openai/gpt-oss-20b": "GPTOss20B",
+    "openai/gpt-oss-120b": "GPTOss120B",
 }
 
 CLI_ADAPTATION_WARNINGS = []
@@ -279,6 +281,7 @@ def _adapt_slurm_cli_args():
     parser.add_argument("--calculator-include-units", action="store_true")
     parser.add_argument("--local-logging-dir")
     parser.add_argument("--base-model-cache")
+    parser.add_argument("--reasoning-effort")
     parsed, remaining = parser.parse_known_args(sys.argv[1:])
     recognized = any(
         [
@@ -297,6 +300,7 @@ def _adapt_slurm_cli_args():
             parsed.calculator_include_units,
             parsed.local_logging_dir,
             parsed.base_model_cache,
+            parsed.reasoning_effort,
         ]
     )
     if not recognized:
@@ -368,6 +372,10 @@ def _adapt_slurm_cli_args():
         overrides.append(
             _format_override("base_models", parsed.base_model_cache, quote=True)
         )
+    if parsed.reasoning_effort:
+        overrides.append(
+            _format_override("gpt_oss_reasoning_effort", parsed.reasoning_effort)
+        )
 
     if parsed.rewoo_planner_reflexion:
         CLI_ADAPTATION_WARNINGS.append(
@@ -419,6 +427,7 @@ def run(args: DictConfig):
         exllama=args.exllama,
         seed=args.seed,
         self_consistency=args.self_consistency,
+        gpt_oss_reasoning_effort=args.gpt_oss_reasoning_effort,
     )
     llm.load_model(args.base_models)
 

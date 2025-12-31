@@ -27,6 +27,7 @@ CONTAINER_VENV="${CONTAINER_VENV:-${CONTAINER_HOME}/venvs/llm}"
 HF_HOME_IN_CONTAINER="${HF_HOME_IN_CONTAINER:-${CONTAINER_HOME}/.cache/huggingface}"
 PY_ENTRY="${PY_ENTRY:-run.py}"
 HF_MODEL_ID="${HF_MODEL_ID:-}"
+REASONING_EFFORT="${REASONING_EFFORT:-low}"
 
 DATA_ROOT_III="${DATA_ROOT_III:-${CONTAINER_HOME}/dropbox/CDM_III}"
 DATA_ROOT_IV="${DATA_ROOT_IV:-${CONTAINER_HOME}/dropbox/CDM_IV}"
@@ -123,6 +124,7 @@ python \"$PY_ENTRY\" \
   --lab-map-pkl \"$LAB_MAP_PKL\" \
   --ref-ranges-json \"$REF_RANGES_JSON\" \
   --local-logging-dir \"$LOG_DIR\" \
+  --reasoning-effort \"$REASONING_EFFORT\" \
   ${MODEL_ARG}${PYTHON_EXTRA_ARGS}
 "
 

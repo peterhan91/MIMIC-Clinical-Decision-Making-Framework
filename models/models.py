@@ -1,4 +1,5 @@
 import os
+import re
 from os.path import join
 from typing import Any, List, Mapping, Dict
 
@@ -35,6 +36,7 @@ class CustomLLM(LLM):
 
     openai_api_key: str = None
     tags: Dict[str, str] = None
+    gpt_oss_reasoning_effort: str = None
 
     @property
     def _llm_type(self) -> Any:
@@ -263,6 +265,27 @@ class CustomLLM(LLM):
             )
             print("loaded model")
 
+        elif self.model_name.startswith("openai/gpt-oss"):
+            from transformers import AutoTokenizer, AutoModelForCausalLM
+
+            print(f"loading from {base_models}")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                self.model_name,
+                cache_dir=base_models,
+                trust_remote_code=True,
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                cache_dir=base_models,
+                device_map="auto",
+                torch_dtype="auto",
+                trust_remote_code=True,
+            )
+            if self.tokenizer.pad_token_id is None and self.tokenizer.eos_token_id is not None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+            print("loaded model")
+
         elif self.model_name == "axiong/PMC_LLaMA_13B":
             from transformers import LlamaTokenizer, LlamaForCausalLM
 
@@ -367,6 +390,44 @@ class CustomLLM(LLM):
         if self.model_name == "Human":
             output = input(prompt)
 
+        elif self.model_name.startswith("openai/gpt-oss"):
+            messages = extract_sections(
+                prompt,
+                self.tags,
+            )
+            if not messages:
+                messages = [{"role": "user", "content": prompt}]
+
+            chat_kwargs = dict(add_generation_prompt=True, return_tensors="pt")
+            if self.gpt_oss_reasoning_effort:
+                chat_kwargs["reasoning_effort"] = self.gpt_oss_reasoning_effort
+            try:
+                input_ids = self.tokenizer.apply_chat_template(messages, **chat_kwargs).to(
+                    self.model.device
+                )
+            except TypeError:
+                fallback_kwargs = {k: v for k, v in chat_kwargs.items() if k != "reasoning_effort"}
+                if len(fallback_kwargs) == len(chat_kwargs):
+                    raise
+                input_ids = self.tokenizer.apply_chat_template(messages, **fallback_kwargs).to(
+                    self.model.device
+                )
+
+            gen_kwargs = dict(
+                max_new_tokens=kwargs.get("max_new_tokens", self.max_context_length),
+                do_sample=do_sample,
+                temperature=temperature,
+                top_p=top_p,
+            )
+            if top_k is not None:
+                gen_kwargs["top_k"] = top_k
+
+            with torch.no_grad():
+                output_ids = self.model.generate(input_ids, **gen_kwargs)
+
+            decoded = self.tokenizer.batch_decode(output_ids, skip_special_tokens=False)[0]
+            output = self._extract_gpt_oss_final_message(decoded)
+
         elif self.openai_api_key:
             messages = extract_sections(
                 prompt,
@@ -461,6 +522,43 @@ class CustomLLM(LLM):
             output = output.replace(stop_word, "")
 
         return output.strip()
+
+    @staticmethod
+    def _extract_gpt_oss_final_message(raw: str) -> str:
+        """Return only the final-channel content from GPT-OSS outputs."""
+        if not raw:
+            return raw
+
+        final_marker = "<|channel|>final<|message|>"
+        idx = raw.rfind(final_marker)
+        if idx != -1:
+            tail = raw[idx + len(final_marker) :]
+            end_idx = tail.find("<|end|>")
+            if end_idx != -1:
+                tail = tail[:end_idx]
+            tail = tail.strip()
+            if tail:
+                return tail
+
+        start_marker = "<|start|>assistant"
+        if start_marker in raw:
+            tail = raw.split(start_marker)[-1]
+            end_idx = tail.find("<|end|>")
+            if end_idx != -1:
+                tail = tail[:end_idx]
+            tail = tail.strip()
+            if tail:
+                if tail.startswith(final_marker):
+                    tail = tail[len(final_marker) :].strip()
+                return tail
+
+        matches = list(re.finditer(r"assistantfinal", raw))
+        if matches:
+            tail = raw[matches[-1].end() :].strip()
+            if tail:
+                return tail
+
+        return raw
 
     @property
     def _identifying_params(self) -> Mapping[str, Any]:
