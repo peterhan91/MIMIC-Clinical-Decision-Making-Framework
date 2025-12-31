@@ -195,6 +195,74 @@ class CustomLLM(LLM):
             )
             print("loaded model")
 
+        elif self.model_name == "google/medgemma-27b-text-it":
+            from transformers import (
+                AutoTokenizer,
+                AutoModelForCausalLM,
+                BitsAndBytesConfig,
+            )
+
+            print(f"loading from {base_models}")
+
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    self.model_name,
+                    cache_dir=base_models,
+                )
+            except Exception as exc_fast:
+                print(
+                    f"failed to load fast tokenizer for {self.model_name}: {exc_fast}. "
+                    "Retrying with use_fast=False."
+                )
+                try:
+                    self.tokenizer = AutoTokenizer.from_pretrained(
+                        self.model_name,
+                        cache_dir=base_models,
+                        use_fast=False,
+                    )
+                except Exception as exc_slow_auto:
+                    print(
+                        "AutoTokenizer(use_fast=False) also failed. "
+                        f"Falling back to GemmaTokenizer. Error: {exc_slow_auto}"
+                    )
+                    from transformers import GemmaTokenizer
+
+                    self.tokenizer = GemmaTokenizer.from_pretrained(
+                        self.model_name,
+                        cache_dir=base_models,
+                    )
+
+            eot = "<end_of_turn>"
+            try:
+                eot_id = self.tokenizer.convert_tokens_to_ids(eot)
+            except Exception:
+                eot_id = None
+            if eot_id is None or (
+                hasattr(self.tokenizer, "unk_token_id")
+                and eot_id == self.tokenizer.unk_token_id
+            ):
+                eot = None
+                eot_id = None
+            if self.tokenizer.pad_token_id is None:
+                pad_token = eot or getattr(self.tokenizer, "eos_token", None)
+                pad_token_id = eot_id or getattr(self.tokenizer, "eos_token_id", None)
+                if pad_token is not None:
+                    self.tokenizer.pad_token = pad_token
+                if pad_token_id is not None:
+                    self.tokenizer.pad_token_id = pad_token_id
+
+            self.load_in_4bit = True
+            bb_cfg = BitsAndBytesConfig(
+                load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                cache_dir=base_models,
+                device_map="auto",
+                quantization_config=bb_cfg,
+            )
+            print("loaded model")
+
         elif self.model_name == "axiong/PMC_LLaMA_13B":
             from transformers import LlamaTokenizer, LlamaForCausalLM
 

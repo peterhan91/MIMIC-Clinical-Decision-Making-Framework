@@ -33,6 +33,7 @@ HF_ID_TO_MODEL_CONFIG = {
     "meta-llama/Llama-3.3-70B-Instruct": "Llama3.3Instruct70B",
     "aaditya/OpenBioLLM-Llama3-70B": "OpenBioLLM70B",
     "axiong/PMC_LLaMA_13B": "PMCLlama13B",
+    "google/medgemma-27b-text-it": "MedGemma27B",
 }
 
 CLI_ADAPTATION_WARNINGS = []
