@@ -26,6 +26,7 @@ CONTAINER_REPO_PATH="${CONTAINER_REPO_PATH:-${CONTAINER_HOME}/codes/MIMIC-CDM-Be
 CONTAINER_VENV="${CONTAINER_VENV:-${CONTAINER_HOME}/venvs/llm}"
 HF_HOME_IN_CONTAINER="${HF_HOME_IN_CONTAINER:-${CONTAINER_HOME}/.cache/huggingface}"
 PY_ENTRY="${PY_ENTRY:-run.py}"
+HF_MODEL_ID="${HF_MODEL_ID:-}"
 
 DATA_ROOT_III="${DATA_ROOT_III:-${CONTAINER_HOME}/dropbox/CDM_III}"
 DATA_ROOT_IV="${DATA_ROOT_IV:-${CONTAINER_HOME}/dropbox/CDM_IV}"
@@ -65,6 +66,14 @@ if [[ $# -gt 0 ]]; then
     for arg in "$@"; do
         PYTHON_EXTRA_ARGS+=" $(printf '%q' "$arg")"
     done
+fi
+
+MODEL_ARG="--hf-model-id \"$HF_MODEL_ID\""
+if [[ "$PYTHON_EXTRA_ARGS" == *"--hf-model-id"* ]]; then
+    MODEL_ARG=""
+elif [[ -z "$HF_MODEL_ID" ]]; then
+    echo "ERROR: Set HF_MODEL_ID or pass --hf-model-id in extra args." >&2
+    exit 1
 fi
 
 APPTAINER_CMD=(
@@ -114,7 +123,7 @@ python \"$PY_ENTRY\" \
   --lab-map-pkl \"$LAB_MAP_PKL\" \
   --ref-ranges-json \"$REF_RANGES_JSON\" \
   --local-logging-dir \"$LOG_DIR\" \
-  --hf-model-id meta-llama/Llama-3.3-70B-Instruct${PYTHON_EXTRA_ARGS}
+  ${MODEL_ARG}${PYTHON_EXTRA_ARGS}
 "
 
 echo "--- Finished MIMIC CDM run ($PY_ENTRY) ---"
