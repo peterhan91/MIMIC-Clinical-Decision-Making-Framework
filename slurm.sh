@@ -13,8 +13,8 @@
 
 set -euo pipefail
 
-APPTAINER_IMAGE="${APPTAINER_IMAGE:-/cbica/projects/CXR/containers/vllm_25.12.sif}"
-APPTAINER_OVERLAY="${APPTAINER_OVERLAY:-/cbica/projects/CXR/containers/vllm_25.10_overlay.img}"
+APPTAINER_IMAGE="${APPTAINER_IMAGE:-/cbica/projects/CXR/containers/pytorch_25.12.sif}"
+APPTAINER_OVERLAY="${APPTAINER_OVERLAY:-/cbica/projects/CXR/containers/pytorch_25.12_overlay.img}"
 # Default to mounting the shared overlay read-only so multiple jobs can run concurrently.
 # Override APPTAINER_OVERLAY_MODE=rw if you really need a writable overlay file.
 APPTAINER_OVERLAY_MODE="${APPTAINER_OVERLAY_MODE:-ro}"
@@ -23,7 +23,7 @@ APPTAINER_BIND="${APPTAINER_BIND:-/cbica/projects/CXR:/workspace}"
 PROJECTS_BIND="${PROJECTS_BIND:-/cbica/projects:/cbica/projects}"
 CONTAINER_HOME="${CONTAINER_HOME:-/workspace}"
 CONTAINER_REPO_PATH="${CONTAINER_REPO_PATH:-${CONTAINER_HOME}/codes/MIMIC-Clinical-Decision-Making-Framework}"
-CONTAINER_VENV="${CONTAINER_VENV:-${CONTAINER_HOME}/venvs/llm}"
+CONTAINER_VENV="${CONTAINER_VENV:-${CONTAINER_HOME}/venvs/torch}"
 HF_HOME_IN_CONTAINER="${HF_HOME_IN_CONTAINER:-${CONTAINER_HOME}/.cache/huggingface}"
 PY_ENTRY="${PY_ENTRY:-run.py}"
 HF_MODEL_ID="${HF_MODEL_ID:-}"
