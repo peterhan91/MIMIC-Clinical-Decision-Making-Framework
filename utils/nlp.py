@@ -1,4 +1,6 @@
 import logging
+import os
+from pathlib import Path
 from typing import List
 import string
 import copy
@@ -25,7 +27,54 @@ nlp.add_pipe(
     },
     last=True,
 )
-# nltk.download("stopwords")
+_NLTK_DATA_READY = False
+
+
+def _configure_nltk_data_dir():
+    env_paths = [p for p in os.environ.get("NLTK_DATA", "").split(os.pathsep) if p]
+    if env_paths:
+        for path in env_paths:
+            if path not in nltk.data.path:
+                nltk.data.path.append(path)
+        download_dir = env_paths[0]
+        try:
+            Path(download_dir).mkdir(parents=True, exist_ok=True)
+            return download_dir
+        except OSError:
+            logging.warning(
+                "NLTK_DATA path is not writable. Falling back to local nltk_data."
+            )
+
+    data_dir = Path(__file__).resolve().parent.parent / "nltk_data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    data_dir_str = str(data_dir)
+    if data_dir_str not in nltk.data.path:
+        nltk.data.path.append(data_dir_str)
+    return data_dir_str
+
+
+def _ensure_nltk_resources():
+    global _NLTK_DATA_READY
+    if _NLTK_DATA_READY:
+        return
+    download_dir = _configure_nltk_data_dir()
+    resources = [
+        ("tokenizers/punkt", "punkt"),
+        ("corpora/stopwords", "stopwords"),
+        ("taggers/averaged_perceptron_tagger_eng", "averaged_perceptron_tagger_eng"),
+        ("taggers/averaged_perceptron_tagger", "averaged_perceptron_tagger"),
+    ]
+    for resource_path, package_name in resources:
+        try:
+            nltk.data.find(resource_path)
+        except LookupError:
+            try:
+                nltk.download(package_name, download_dir=download_dir, quiet=True)
+            except Exception as exc:
+                logging.warning(
+                    "NLTK download failed for %s: %s", package_name, exc
+                )
+    _NLTK_DATA_READY = True
 
 ###
 # Collection of functions for natural language processing utility
@@ -98,6 +147,7 @@ def extract_keywords_spacy(text: str):
 
 # Extract keywords from text using nltk library. Keywords are nouns and adjectives
 def extract_keywords_nltk(text: str):
+    _ensure_nltk_resources()
     words = word_tokenize(text)
     pos_tags = nltk.pos_tag(words)
     keywords = [word for word, tag in pos_tags if tag in ["NN", "NNS", "JJ", "NNP"]]
@@ -193,6 +243,7 @@ def convert_labs_to_itemid(tests: List[str], lab_test_mapping_df: pd.DataFrame):
 
 
 def remove_stop_words(sentence):
+    _ensure_nltk_resources()
     nltk_stop_words = set(stopwords.words("english"))
 
     # Keep uppercase single letters as they often are part of lab tests
