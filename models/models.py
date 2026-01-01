@@ -253,15 +253,11 @@ class CustomLLM(LLM):
                 if pad_token_id is not None:
                     self.tokenizer.pad_token_id = pad_token_id
 
-            self.load_in_4bit = True
-            bb_cfg = BitsAndBytesConfig(
-                load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
-            )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 cache_dir=base_models,
                 device_map="auto",
-                quantization_config=bb_cfg,
+                torch_dtype=torch.bfloat16,
             )
             print("loaded model")
 
