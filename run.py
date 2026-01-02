@@ -36,6 +36,7 @@ HF_ID_TO_MODEL_CONFIG = {
     "google/medgemma-27b-text-it": "MedGemma27B",
     "openai/gpt-oss-20b": "GPTOss20B",
     "openai/gpt-oss-120b": "GPTOss120B",
+    "peterhan91/oss-20B-planner": "GPTOss20BPlanner",
 }
 
 CLI_ADAPTATION_WARNINGS = []

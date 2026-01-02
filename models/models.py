@@ -261,7 +261,10 @@ class CustomLLM(LLM):
             )
             print("loaded model")
 
-        elif self.model_name.startswith("openai/gpt-oss"):
+        elif (
+            self.model_name.startswith("openai/gpt-oss")
+            or self.model_name == "peterhan91/oss-20B-planner"
+        ):
             from transformers import AutoTokenizer, AutoModelForCausalLM
 
             print(f"loading from {base_models}")
@@ -270,11 +273,16 @@ class CustomLLM(LLM):
                 cache_dir=base_models,
                 trust_remote_code=True,
             )
+            torch_dtype = (
+                torch.bfloat16
+                if self.model_name == "peterhan91/oss-20B-planner"
+                else "auto"
+            )
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
                 cache_dir=base_models,
                 device_map="auto",
-                torch_dtype="auto",
+                torch_dtype=torch_dtype,
                 trust_remote_code=True,
             )
             if self.tokenizer.pad_token_id is None and self.tokenizer.eos_token_id is not None:
@@ -386,7 +394,10 @@ class CustomLLM(LLM):
         if self.model_name == "Human":
             output = input(prompt)
 
-        elif self.model_name.startswith("openai/gpt-oss"):
+        elif (
+            self.model_name.startswith("openai/gpt-oss")
+            or self.model_name == "peterhan91/oss-20B-planner"
+        ):
             messages = extract_sections(
                 prompt,
                 self.tags,
