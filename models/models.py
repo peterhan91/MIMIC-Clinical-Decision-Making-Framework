@@ -1,7 +1,7 @@
 import os
 import re
 from os.path import join
-from typing import Any, List, Mapping, Dict
+from typing import Any, List, Mapping, Dict, Optional
 
 import torch
 import openai
@@ -25,14 +25,16 @@ class CustomLLM(LLM):
     max_context_length: int
     probabilities: torch.Tensor = None
     exllama: bool = False
-    load_in_8bit: bool = False
-    load_in_4bit: bool = False
+    load_in_8bit: Optional[bool] = None
+    load_in_4bit: Optional[bool] = None
     truncation_side: str = "left"
     model: Any
     generator: Any
     tokenizer: Any
     seed: int
     self_consistency: bool = False
+    torch_dtype: Optional[str] = None
+    attn_implementation: Optional[str] = None
 
     openai_api_key: str = None
     tags: Dict[str, str] = None
@@ -52,15 +54,38 @@ class CustomLLM(LLM):
 
     @property
     def _llm_8bit(self) -> bool:
-        return self.load_in_8bit
+        return self.load_in_8bit is True
 
     @property
     def _llm_4bit(self) -> bool:
-        return self.load_in_4bit
+        return self.load_in_4bit is True
 
     @property
     def _llm_truncation_side(self) -> str:
         return self.truncation_side
+
+    def _resolve_torch_dtype(self) -> Optional[torch.dtype]:
+        if self.torch_dtype is None:
+            return None
+        if isinstance(self.torch_dtype, torch.dtype):
+            return self.torch_dtype
+        if isinstance(self.torch_dtype, str):
+            key = self.torch_dtype.strip().lower()
+            mapping = {
+                "bf16": torch.bfloat16,
+                "bfloat16": torch.bfloat16,
+                "fp16": torch.float16,
+                "float16": torch.float16,
+                "fp32": torch.float32,
+                "float32": torch.float32,
+            }
+            if key in mapping:
+                return mapping[key]
+            try:
+                return getattr(torch, key)
+            except AttributeError as exc:
+                raise ValueError(f"Unsupported torch_dtype: {self.torch_dtype}") from exc
+        raise ValueError(f"Unsupported torch_dtype: {self.torch_dtype}")
 
     def load_model(self, base_models: str) -> None:
         torch.cuda.empty_cache()
@@ -186,14 +211,39 @@ class CustomLLM(LLM):
             self.tokenizer.pad_token_id = eot_id
 
             print("loaded tokenizer")
-            bb_cfg = BitsAndBytesConfig(
-                load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16
-            )
+            use_4bit = self.load_in_4bit
+            use_8bit = self.load_in_8bit
+            if use_4bit is None and use_8bit is None:
+                use_4bit = True
+            if use_4bit and use_8bit:
+                raise ValueError("Only one of load_in_4bit or load_in_8bit can be true.")
+
+            model_kwargs = {
+                "cache_dir": base_models,
+                "device_map": "auto",
+            }
+            if self.attn_implementation:
+                model_kwargs["attn_implementation"] = self.attn_implementation
+
+            resolved_dtype = self._resolve_torch_dtype()
+            if use_4bit or use_8bit:
+                bnb_kwargs = {
+                    "load_in_4bit": bool(use_4bit),
+                    "load_in_8bit": bool(use_8bit),
+                }
+                if use_4bit:
+                    bnb_kwargs["bnb_4bit_compute_dtype"] = (
+                        resolved_dtype or torch.bfloat16
+                    )
+                bb_cfg = BitsAndBytesConfig(**bnb_kwargs)
+                model_kwargs["quantization_config"] = bb_cfg
+            else:
+                if resolved_dtype is not None:
+                    model_kwargs["torch_dtype"] = resolved_dtype
+
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.model_name,
-                cache_dir=base_models,
-                device_map="auto",
-                quantization_config=bb_cfg,
+                **model_kwargs,
             )
             print("loaded model")
 

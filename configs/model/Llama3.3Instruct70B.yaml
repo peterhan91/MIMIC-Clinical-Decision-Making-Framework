@@ -6,6 +6,10 @@ openai_api_key:
 model_name: "meta-llama/Llama-3.3-70B-Instruct"
 max_context_length: 128000
 exllama: False
+load_in_4bit: True
+load_in_8bit: False
+torch_dtype:
+attn_implementation:
 
 system_tag_start: "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n"
 system_tag_end: "<|eot_id|>"
